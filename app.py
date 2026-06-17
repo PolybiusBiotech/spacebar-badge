@@ -68,11 +68,6 @@ class SpaceBarApp(App):
     # App lifecycle
     # ------------------------------------------------------------------
 
-    async def run(self, render_update):
-        while True:
-            await render_update()
-            await asyncio.sleep(0.05)
-
     def background_update(self, delta):
         if self.state == S_WIFI:
             self._bg_connect_wifi()
@@ -95,7 +90,7 @@ class SpaceBarApp(App):
 
         # QR expiry countdown
         if self.state == S_QR:
-            elapsed = time.monotonic() - self.order_placed_at
+            elapsed = time.ticks_ms() / 1000.0 - self.order_placed_at
             if elapsed >= EXPIRY_S:
                 self._reset_for_new_order()
 
@@ -132,9 +127,9 @@ class SpaceBarApp(App):
 
     def _bg_fetch_stocklines(self):
         try:
-            from requests import get
+            import urequests
             url = f"{TILLWEB_BASE_URL}/api/stocklines.json?location={LOCATION}"
-            resp = get(url, headers={"Authorization": f"Bearer {KIOSK_TOKEN}"})
+            resp = urequests.get(url, headers={"Authorization": f"Bearer {KIOSK_TOKEN}"})
             data = json.loads(resp.content)
             self._bg_result = ("stocklines", data)
         except Exception as e:
@@ -142,7 +137,7 @@ class SpaceBarApp(App):
 
     def _bg_place_order(self):
         try:
-            from requests import post
+            import urequests
             items = [
                 {"stockline_id": sid, "qty": info["qty"]}
                 for sid, info in self.basket.items()
@@ -151,7 +146,7 @@ class SpaceBarApp(App):
                 "location": LOCATION,
                 "items": items,
             })
-            resp = post(
+            resp = urequests.post(
                 f"{TILLWEB_BASE_URL}/api/kiosk/orders.json",
                 data=body,
                 headers={
@@ -194,7 +189,7 @@ class SpaceBarApp(App):
             else:
                 self.order_ref = data.get("order_ref", "")
                 self.qr_rows = data.get("qr_rows", [])
-                self.order_placed_at = time.monotonic()
+                self.order_placed_at = time.ticks_ms() / 1000.0
                 self.state = S_QR
 
     # ------------------------------------------------------------------
@@ -347,7 +342,7 @@ class SpaceBarApp(App):
                     ).fill()
 
         # Countdown arc at bottom
-        elapsed = time.monotonic() - self.order_placed_at
+        elapsed = time.ticks_ms() / 1000.0 - self.order_placed_at
         remaining = max(0.0, EXPIRY_S - elapsed)
         frac = remaining / EXPIRY_S
         ctx.rgb(0.2, 0.8, 0.2).font_size = 16

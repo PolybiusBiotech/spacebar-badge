@@ -8,7 +8,7 @@ class = "SpaceBarApp"
 
 [metadata]
 author = "Polybius"
-license = "MIT"
+license = "GPL-3.0-only"
 url = "https://github.com/PolybiusBiotech/spacebar-badge"
 description = "Order drinks at the Polybius Space Bar — scan QR at the payment point to pay."
 version = "1"
