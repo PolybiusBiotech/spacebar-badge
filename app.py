@@ -94,6 +94,14 @@ class SpaceBarApp(App):
             if elapsed >= EXPIRY_S:
                 self._reset_for_new_order()
 
+        # Tick menu and notification animations
+        if self.menu:
+            self.menu.update(delta)
+        if self.notification:
+            self.notification.update(delta)
+            if self.notification._is_closed():
+                self.notification = None
+
         # Button handling (non-menu states)
         if self.state in (S_WIFI, S_LOADING, S_ORDERING):
             return
@@ -196,18 +204,27 @@ class SpaceBarApp(App):
     # Menu builders
     # ------------------------------------------------------------------
 
+    BASKET_LABEL = "[ Basket ]"
+    ORDER_LABEL  = "Place order"
+    CLEAR_LABEL  = "Clear basket"
+
+    def _set_menu(self, menu):
+        if self.menu is not None and hasattr(self.menu, "_cleanup"):
+            self.menu._cleanup()
+        self.menu = menu
+
     def _show_categories(self):
         self.current_cat = None
         self.state = S_CATEGORIES
-        labels = self.categories + (["🧺 View basket"] if self.basket else [])
-        self.menu = Menu(
+        labels = self.categories + ([self.BASKET_LABEL] if self.basket else [])
+        self._set_menu(Menu(
             self, labels,
             select_handler=self._cat_selected,
             back_handler=self.minimise,
-        )
+        ))
 
     def _cat_selected(self, item, idx):
-        if item == "🧺 View basket":
+        if item == self.BASKET_LABEL:
             self._show_basket()
             return
         self.current_cat = item
@@ -216,12 +233,12 @@ class SpaceBarApp(App):
     def _show_items(self, category):
         self.state = S_ITEMS
         items = self.items_by_cat.get(category, [])
-        labels = [f"{i['name']}  £{i['price']}" for i in items]
-        self.menu = Menu(
+        labels = [f"{i['name']}  {i['price']}" for i in items]
+        self._set_menu(Menu(
             self, labels,
             select_handler=lambda item, idx: self._item_selected(items[idx]),
             back_handler=self._show_categories,
-        )
+        ))
 
     def _item_selected(self, item):
         sid = item["id"]
@@ -238,7 +255,7 @@ class SpaceBarApp(App):
             self._show_categories()
             return
         lines = [
-            f"{info['qty']}× {info['name']}"
+            f"{info['qty']}x {info['name']}"
             for info in self.basket.values()
         ]
         total = sum(
@@ -246,20 +263,20 @@ class SpaceBarApp(App):
             for info in self.basket.values()
             if info["price"] != "?"
         )
-        lines.append(f"Total: £{total:.2f}")
-        lines.append("✓ Place order")
-        lines.append("✗ Clear basket")
-        self.menu = Menu(
+        lines.append(f"Total: {total:.2f}")
+        lines.append(self.ORDER_LABEL)
+        lines.append(self.CLEAR_LABEL)
+        self._set_menu(Menu(
             self, lines,
             select_handler=self._basket_action,
             back_handler=self._show_categories,
-        )
+        ))
 
     def _basket_action(self, item, idx):
-        if item == "✓ Place order":
+        if item == self.ORDER_LABEL:
             self.state = S_ORDERING
-            self.menu = None
-        elif item == "✗ Clear basket":
+            self._set_menu(None)
+        elif item == self.CLEAR_LABEL:
             self.basket = {}
             self.notification = Notification("Basket cleared")
             self._show_categories()
@@ -291,8 +308,6 @@ class SpaceBarApp(App):
                 self.menu.draw(ctx)
             if self.notification:
                 self.notification.draw(ctx)
-                if self.notification.is_complete:
-                    self.notification = None
 
         elif self.state == S_ORDERING:
             self._draw_message(ctx, "Placing\norder…", 0.5, 0.4, 0.0)
