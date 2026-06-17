@@ -1,0 +1,14 @@
+[app]
+name = "Space Bar"
+category = "Apps"
+wifi_preference = true
+
+[entry]
+class = "SpaceBarApp"
+
+[metadata]
+author = "Polybius"
+license = "MIT"
+url = "https://github.com/PolybiusBiotech/spacebar-badge"
+description = "Order drinks at the Polybius Space Bar — scan QR at the payment point to pay."
+version = "1"
