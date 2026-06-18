@@ -27,13 +27,16 @@ Edit the constants at the top of `app.py`:
 ```python
 TILLWEB_BASE_URL = "https://bar.emf.camp"
 KIOSK_TOKEN      = "<badge-app-public-token>"
-LOCATION         = "Spacebar"
+LOCATION         = "Spacebar"          # must match emftillweb.toml token location
+LOCATION_DISPLAY = "Space BAR"         # shown in menu header (logo TBD)
 OMS_BASE_URL     = "http://<luke-device-ip>:8081"  # must be reachable from badge WiFi
 ```
 
 After placing an order the badge polls `OMS_BASE_URL/api/orders?order=<ref>` every
 5 seconds. When the OMS state changes to `processing` the QR screen closes. When it
 changes to `collect` the badge flashes green and pulses the LEDs.
+
+If the OMS is unreachable for 5 consecutive polls the badge shows **"Can't reach bar — see staff for order"** and stops polling. The order still exists at the till; staff can look it up manually.
 
 Pressing **F** on the QR screen while the QR is still live cancels the order: the
 badge POSTs `{"order_ref": ..., "barcode": ...}` to

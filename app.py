@@ -329,6 +329,8 @@ class SpaceBarApp(App):
             if state:
                 self._poll_fails = 0
                 self._bg_result = ("order_status", state)
+            else:
+                self._poll_fails += 1
         except Exception:
             self._poll_fails += 1
             if self._poll_fails >= OMS_POLL_FAIL_MAX:
