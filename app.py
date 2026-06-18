@@ -47,8 +47,9 @@ S_PROCESSING  = "processing"   # paid — being made
 S_COLLECT     = "collect"      # ready — come get it
 S_ERROR       = "error"
 
-EXPIRY_S     = 120
-STATUS_POLL_S = 5   # seconds between OMS status polls
+EXPIRY_S          = 120
+STATUS_POLL_S     = 5    # seconds between OMS status polls
+OMS_POLL_FAIL_MAX = 5    # consecutive OMS poll failures before surfacing an error
 
 
 # ---------------------------------------------------------------------------
@@ -169,8 +170,9 @@ class SpaceBarApp(App):
         self._qr_expired     = False
         self._last_status_check = 0.0
 
-        self._bg_result = None
-        self._bg_error  = None
+        self._bg_result    = None
+        self._bg_error     = None
+        self._poll_fails   = 0
 
     # ------------------------------------------------------------------
     # App lifecycle
@@ -250,19 +252,22 @@ class SpaceBarApp(App):
             if not wifi.status():
                 wifi.connect()
             if wifi.status():
-                self.state = S_LOADING
+                self._bg_result = ("connected", None)
         except Exception as e:
-            self._bg_error = f"WiFi error: {e}"
+            self._bg_error = str(e)[:60]
 
     def _bg_fetch_stocklines(self):
         try:
             import urequests
             url = f"{TILLWEB_BASE_URL}/api/stocklines.json?location={LOCATION}"
             resp = urequests.get(url, headers={"Authorization": f"Bearer {KIOSK_TOKEN}"})
-            data = json.loads(resp.content)
+            try:
+                data = json.loads(resp.content)
+            finally:
+                resp.close()
             self._bg_result = ("stocklines", data)
         except Exception as e:
-            self._bg_error = f"Failed to load menu: {e}"
+            self._bg_error = f"Menu load failed\n{str(e)[:40]}"
 
     def _bg_place_order(self):
         try:
@@ -280,16 +285,19 @@ class SpaceBarApp(App):
                     "Content-Type": "application/json",
                 },
             )
-            data = json.loads(resp.content)
+            try:
+                data = json.loads(resp.content)
+            finally:
+                resp.close()
             self._bg_result = ("order", data)
         except Exception as e:
-            self._bg_error = f"Order failed: {e}"
+            self._bg_error = f"Order failed\n{str(e)[:40]}"
 
     def _bg_cancel_order(self):
         try:
             import urequests
             body = json.dumps({"order_ref": self.order_ref, "barcode": self.barcode})
-            urequests.post(
+            resp = urequests.post(
                 f"{TILLWEB_BASE_URL}/api/kiosk/orders/cancel.json",
                 data=body,
                 headers={
@@ -297,6 +305,7 @@ class SpaceBarApp(App):
                     "Content-Type": "application/json",
                 },
             )
+            resp.close()
         except Exception:
             pass  # best-effort — order will expire naturally if this fails
         self._bg_result = ("cancelled", None)
@@ -312,12 +321,18 @@ class SpaceBarApp(App):
         try:
             import urequests
             resp = urequests.get(f"{OMS_BASE_URL}/api/orders?order={self.order_ref}")
-            data = json.loads(resp.content)
+            try:
+                data = json.loads(resp.content)
+            finally:
+                resp.close()
             state = data.get("order", {}).get("state")
             if state:
+                self._poll_fails = 0
                 self._bg_result = ("order_status", state)
         except Exception:
-            pass
+            self._poll_fails += 1
+            if self._poll_fails >= OMS_POLL_FAIL_MAX:
+                self._bg_error = "Can't reach bar\nSee staff for order"
 
     # ------------------------------------------------------------------
     # Background result handler
@@ -326,7 +341,10 @@ class SpaceBarApp(App):
     def _handle_bg_result(self, result):
         kind, data = result
 
-        if kind == "stocklines":
+        if kind == "connected":
+            self.state = S_LOADING
+
+        elif kind == "stocklines":
             lines = data.get("stocklines", [])
             by_cat = {}
             for line in lines:
@@ -411,7 +429,13 @@ class SpaceBarApp(App):
         self._show_bill = False
         self._qr_expired = False
         self._last_status_check = 0.0
-        self._show_categories()
+        self._poll_fails = 0
+        if self.categories:
+            self._show_categories()
+        else:
+            # Menu never loaded (e.g. WiFi error before fetch) — restart from scratch
+            self.menu  = None
+            self.state = S_WIFI
 
     # ------------------------------------------------------------------
     # LED helpers
@@ -511,7 +535,7 @@ class SpaceBarApp(App):
         ctx.rgb(0, 0, 0)
         for y, row in enumerate(rows):
             for x, bit in enumerate(row):
-                if bit == "1":
+                if bit:
                     ctx.rectangle(offset + x * cell, offset + y * cell, cell, cell).fill()
 
         self._draw_countdown(ctx)
@@ -526,15 +550,19 @@ class SpaceBarApp(App):
         ctx.rgb(*C_TITLE)
         ctx.move_to(0, -30).text(self.order_ref)
 
-        total = sum(
-            float(info["price"]) * info["qty"]
-            for info in self.basket.values()
-            if info["price"] != "?"
-        )
+        try:
+            total = sum(
+                float(info["price"]) * info["qty"]
+                for info in self.basket.values()
+                if info["price"] not in ("?", None)
+            )
+            price_str = f"\xa3{total:.2f}"
+        except (ValueError, TypeError):
+            price_str = "\xa3?"
         ctx.font = "Arimo Regular"
         ctx.font_size = 44
         ctx.rgb(*C_ACCENT)
-        ctx.move_to(0, 14).text(f"\xa3{total:.2f}")
+        ctx.move_to(0, 14).text(price_str)
 
         ctx.font = "Camp Font 2"
         ctx.font_size = 16
