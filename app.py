@@ -11,7 +11,7 @@ from events.input import BUTTON_TYPES, Buttons
 # Config — fill in before deploying
 # ---------------------------------------------------------------------------
 TILLWEB_BASE_URL = "https://bar.emf.camp"
-KIOSK_TOKEN = "<badge-app-public-token>"   # matches emftillweb.toml badge token
+KIOSK_TOKEN = "OlWh4o3Vny-1WtnLXo0B12VfZh4IgrD-bsYZquiffOw"   # matches emftillweb.toml badge token
 LOCATION = "Spacebar"
 OMS_BASE_URL = "http://127.0.0.1:8081"    # OMS device on local WiFi
 
