@@ -537,7 +537,7 @@ class SpaceBarApp(App):
         ctx.rgb(0, 0, 0)
         for y, row in enumerate(rows):
             for x, bit in enumerate(row):
-                if bit:
+                if bit == "1":
                     ctx.rectangle(offset + x * cell, offset + y * cell, cell, cell).fill()
 
         self._draw_countdown(ctx)
