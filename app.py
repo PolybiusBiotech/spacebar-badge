@@ -473,13 +473,13 @@ class SpaceBarApp(App):
         ctx.text_baseline = ctx.MIDDLE
 
         if self.state == S_WIFI:
-            self._draw_status(ctx, "Connecting\nto WiFi…", C_OK)
+            self._draw_status(ctx, "Joining\nrebel net…", C_OK)
         elif self.state == S_LOADING:
-            self._draw_status(ctx, "Loading\nmenu…", C_OK)
+            self._draw_status(ctx, "Accessing\nBAR registry…", C_OK)
         elif self.state == S_ORDERING:
-            self._draw_status(ctx, "Placing\norder…", C_WARN)
+            self._draw_status(ctx, "Transmitting\norder…", C_WARN)
         elif self.state == S_CANCELLING:
-            self._draw_status(ctx, "Cancelling\norder…", C_WARN)
+            self._draw_status(ctx, "Voiding\ntransaction…", C_WARN)
         elif self.state == S_ERROR:
             self._draw_status(ctx, self.error_msg, C_ERR)
 
@@ -607,7 +607,7 @@ class SpaceBarApp(App):
         ctx.font = "Camp Font 2"
         ctx.font_size = 22
         ctx.rgb(*C_INFO)
-        ctx.move_to(0, 10).text("Processing…")
+        ctx.move_to(0, 10).text("Being prepared…")
 
         ctx.font_size = 16
         ctx.rgb(*C_BODY)
