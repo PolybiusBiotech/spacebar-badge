@@ -21,17 +21,19 @@ OMS_BASE_URL = "http://127.0.0.1:8081"    # OMS device on local WiFi
 # ---------------------------------------------------------------------------
 RADIUS  = 120
 QR_MAX  = 200
-BG      = (0.0, 0.05, 0.2)   # dark navy — base background
+BG      = (0.0, 0.059, 0.0)    # #000F00 dark green-black — kiosk background
 
-# Color palette
-C_TITLE  = (0.9,  0.9,  1.0)   # near-white lavender  — headings, order ref
-C_BODY   = (0.65, 0.65, 0.85)  # muted lavender        — secondary / list items
-C_SELECT = (1.0,  1.0,  1.0)   # white                 — selected menu item
-C_ACCENT = (0.3,  1.0,  0.5)   # mint green            — prices, totals
-C_INFO   = (0.4,  0.75, 1.0)   # sky blue              — status text
-C_OK     = (0.2,  0.8,  0.2)   # green                 — countdown, success
-C_WARN   = (0.65, 0.5,  0.0)   # amber                 — in-progress states
-C_ERR    = (0.7,  0.0,  0.0)   # red                   — errors, expired
+# Color palette — mirrors the kiosk Polybius theme
+C_TITLE  = (0.486, 0.757, 0.259)  # #7CC142 lime green    — headings, order ref
+C_BODY   = (0.91,  1.0,   0.91)   # #e8ffe8 light green   — body copy
+C_SELECT = (0.486, 0.757, 0.259)  # #7CC142 lime green    — selected menu item
+C_ACCENT  = (0.745, 0.0,   0.996)  # #BE00FE magenta       — prices, CTAs, ">"
+C_GRAFFITI = (0.988, 0.639, 0.067) # #FCA311 orange        — "Space" spray-paint
+C_INFO   = (0.486, 0.757, 0.259)  # lime green            — status text
+C_OK     = (0.486, 0.757, 0.259)  # lime green            — countdown, success
+C_WARN   = (0.976, 0.886, 0.0)    # #F9E200 amber         — in-progress states
+C_ERR    = (0.969, 0.498, 0.008)  # #F77F02 orange-red    — errors, expired
+C_MUTED  = (0.29,  0.478, 0.29)   # #4a7a4a muted green   — secondary / inactive
 
 # ---------------------------------------------------------------------------
 # States
@@ -62,11 +64,12 @@ class NavMenu:
     handlers registered, so no cleanup step needed.
     """
 
-    LINE_H   = 36    # px between rows
+    LINE_H   = 40    # px between rows
     VISIBLE  = 3     # max rows shown at once
     FONT     = "Camp Font 2"
-    FONT_SZ  = 24
+    FONT_SZ  = 28
     IND_X    = -RADIUS + 22   # x position of the ">" selection indicator
+    Y_OFFSET = 16    # shift menu centre down so header has room
 
     def __init__(self, items, *, on_select, on_back=None):
         self.items    = items
@@ -109,13 +112,13 @@ class NavMenu:
 
     def draw(self, ctx):
         n = min(self.VISIBLE, len(self.items))
-        start_y = -(n * self.LINE_H) // 2 + self.LINE_H // 2
+        start_y = -(n * self.LINE_H) // 2 + self.LINE_H // 2 + self.Y_OFFSET
 
         # Scroll-up indicator
         if self._scroll > 0:
             ctx.font = "Arimo Regular"
-            ctx.font_size = 13
-            ctx.rgb(*C_BODY)
+            ctx.font_size = 16
+            ctx.rgb(*C_MUTED)
             ctx.move_to(0, start_y - self.LINE_H).text(". . .")
 
         for i in range(n):
@@ -126,12 +129,13 @@ class NavMenu:
             y = start_y + i * self.LINE_H
 
             if selected:
-                ctx.rgb(*C_SELECT)
+                ctx.rgb(*C_ACCENT)  # magenta ">" indicator
                 ctx.font = self.FONT
                 ctx.font_size = self.FONT_SZ
                 ctx.move_to(self.IND_X, y).text(">")
+                ctx.rgb(*C_SELECT)  # lime green for selected text
             else:
-                ctx.rgb(*C_BODY)
+                ctx.rgb(*C_MUTED)
 
             ctx.font = self.FONT
             ctx.font_size = self.FONT_SZ
@@ -140,8 +144,8 @@ class NavMenu:
         # Scroll-down indicator
         if self._scroll + n < len(self.items):
             ctx.font = "Arimo Regular"
-            ctx.font_size = 13
-            ctx.rgb(*C_BODY)
+            ctx.font_size = 16
+            ctx.rgb(*C_MUTED)
             ctx.move_to(0, start_y + n * self.LINE_H).text(". . .")
 
 
@@ -508,7 +512,21 @@ class SpaceBarApp(App):
         ctx.restore()
 
     def _draw_status(self, ctx, text, color):
-        """Centred two-line status message."""
+        """Centred status message with brand mark at top."""
+        # "Space" graffiti: orange, angled, Arimo — offset-left over "BAR"
+        ctx.save()
+        ctx.translate(-25, -RADIUS + 42)
+        ctx.rotate(-0.38)
+        ctx.font = "Arimo Regular"
+        ctx.font_size = 26
+        ctx.rgb(*C_GRAFFITI)
+        ctx.move_to(0, 0).text("Space")
+        ctx.restore()
+        ctx.font = "Camp Font 2"
+        ctx.font_size = 26
+        ctx.rgb(*C_TITLE)
+        ctx.move_to(0, -RADIUS + 54).text("BAR")
+
         ctx.font = "Camp Font 2"
         ctx.font_size = 26
         ctx.rgb(*color)
@@ -517,11 +535,26 @@ class SpaceBarApp(App):
             ctx.move_to(0, (i - len(lines) / 2 + 0.5) * 34).text(line)
 
     def _draw_menu_header(self, ctx, label):
-        """Small location/category label at the top of menu screens."""
-        ctx.font = "Camp Font 2"
-        ctx.font_size = 16
-        ctx.rgb(*C_BODY)
-        ctx.move_to(0, -RADIUS + 22).text(label)
+        """Location or category label at the top of menu screens."""
+        if label == LOCATION_DISPLAY:
+            # "Space" graffiti: orange, angled, Arimo — offset-left over "BAR"
+            ctx.save()
+            ctx.translate(-30, -RADIUS + 44)
+            ctx.rotate(-0.38)
+            ctx.font = "Arimo Regular"
+            ctx.font_size = 32
+            ctx.rgb(*C_GRAFFITI)
+            ctx.move_to(0, 0).text("Space")
+            ctx.restore()
+            ctx.font = "Camp Font 2"
+            ctx.font_size = 34
+            ctx.rgb(*C_TITLE)
+            ctx.move_to(0, -RADIUS + 62).text("BAR")
+        else:
+            ctx.font = "Camp Font 2"
+            ctx.font_size = 22
+            ctx.rgb(*C_TITLE)
+            ctx.move_to(0, -RADIUS + 36).text(label)
 
     def _draw_qr(self, ctx):
         rows = self.qr_rows
@@ -544,13 +577,13 @@ class SpaceBarApp(App):
 
     def _draw_bill(self, ctx):
         ctx.font = "Camp Font 1"
-        ctx.font_size = 16
-        ctx.rgb(*C_BODY)
-        ctx.move_to(0, -58).text("ORDER")
+        ctx.font_size = 14
+        ctx.rgb(*C_MUTED)
+        ctx.move_to(0, -62).text("ORDER")
 
-        ctx.font_size = 26
-        ctx.rgb(*C_TITLE)
-        ctx.move_to(0, -30).text(self.order_ref)
+        ctx.font_size = 28
+        ctx.rgb(*C_TITLE)  # lime green
+        ctx.move_to(0, -32).text(self.order_ref)
 
         try:
             total = sum(
@@ -563,12 +596,12 @@ class SpaceBarApp(App):
             price_str = "\xa3?"
         ctx.font = "Arimo Regular"
         ctx.font_size = 44
-        ctx.rgb(*C_ACCENT)
+        ctx.rgb(*C_ACCENT)  # magenta price — kiosk CTA colour
         ctx.move_to(0, 14).text(price_str)
 
         ctx.font = "Camp Font 2"
         ctx.font_size = 16
-        ctx.rgb(*C_BODY)
+        ctx.rgb(*C_MUTED)
         for i, info in enumerate(self.basket.values()):
             ctx.move_to(0, 46 + i * 20).text(info["name"])
 
@@ -587,46 +620,52 @@ class SpaceBarApp(App):
             ctx.move_to(0, RADIUS - 20).text("Expired")
         else:
             ctx.font_size = 16
-            ctx.rgb(*C_OK)
+            ctx.rgb(*C_OK)  # lime green timer text
             ctx.move_to(0, RADIUS - 20).text(f"{int(remaining)}s")
             angle = frac * 2 * math.pi
+            ctx.rgb(*C_TITLE)  # lime green arc sweeping the edge
             ctx.arc(0, 0, RADIUS - 8, -math.pi / 2, -math.pi / 2 + angle, False)
-            ctx.line_width = 4
+            ctx.line_width = 5
             ctx.stroke()
 
     def _draw_processing(self, ctx):
         ctx.font = "Camp Font 1"
-        ctx.font_size = 16
-        ctx.rgb(*C_BODY)
+        ctx.font_size = 14
+        ctx.rgb(*C_MUTED)
         ctx.move_to(0, -54).text("ORDER")
 
-        ctx.font_size = 26
-        ctx.rgb(*C_TITLE)
+        ctx.font_size = 28
+        ctx.rgb(*C_TITLE)  # lime green
         ctx.move_to(0, -26).text(self.order_ref)
 
         ctx.font = "Camp Font 2"
         ctx.font_size = 22
-        ctx.rgb(*C_INFO)
+        ctx.rgb(*C_ACCENT)  # magenta — mirrors kiosk CTA highlight
         ctx.move_to(0, 10).text("Being prepared…")
 
         ctx.font_size = 16
-        ctx.rgb(*C_BODY)
+        ctx.rgb(*C_MUTED)
         for i, info in enumerate(self.basket.values()):
             ctx.move_to(0, 40 + i * 20).text(info["name"])
 
     def _draw_collect(self, ctx):
         flash = (int(time.ticks_ms() / 500) % 2) == 0
+
+        # Pulsing magenta ring around the bezel — more legible than a fill on round screen
         if flash:
-            ctx.rgb(0.0, 0.6, 0.2).rectangle(-RADIUS, -RADIUS, RADIUS * 2, RADIUS * 2).fill()
+            ctx.rgb(*C_ACCENT)
+            ctx.arc(0, 0, RADIUS - 5, 0, 2 * math.pi, False)
+            ctx.line_width = 10
+            ctx.stroke()
 
         ctx.font = "Camp Font 1"
         ctx.font_size = 52
-        ctx.rgb(*C_SELECT if flash else C_ACCENT)
+        ctx.rgb(*C_ACCENT)  # magenta — kiosk checkout button colour
         ctx.move_to(0, -10).text("COLLECT")
 
         ctx.font = "Camp Font 2"
         ctx.font_size = 24
-        ctx.rgb(*C_TITLE)
+        ctx.rgb(*C_TITLE)  # lime green order ref
         ctx.move_to(0, 40).text(self.order_ref)
 
 
