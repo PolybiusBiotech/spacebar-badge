@@ -3,6 +3,7 @@ import math
 import time
 
 import wifi
+from qr import make as _qr_make
 from app import App
 from app_components import clear_background
 from events.input import BUTTON_TYPES, Buttons
@@ -282,7 +283,7 @@ class SpaceBarApp(App):
             ]
             body = json.dumps({"location": LOCATION, "items": items})
             resp = urequests.post(
-                f"{TILLWEB_BASE_URL}/api/kiosk/orders.json",
+                f"{TILLWEB_BASE_URL}/api/kiosk/orders",
                 data=body,
                 headers={
                     "Authorization": f"Bearer {KIOSK_TOKEN}",
@@ -300,13 +301,12 @@ class SpaceBarApp(App):
     def _bg_cancel_order(self):
         try:
             import urequests
-            body = json.dumps({"order_ref": self.order_ref, "barcode": self.barcode})
-            resp = urequests.post(
-                f"{TILLWEB_BASE_URL}/api/kiosk/orders/cancel.json",
-                data=body,
+            resp = urequests.request(
+                "DELETE",
+                f"{TILLWEB_BASE_URL}/api/kiosk/orders/{self.order_ref}",
                 headers={
                     "Authorization": f"Bearer {KIOSK_TOKEN}",
-                    "Content-Type": "application/json",
+                    "Order-Barcode": self.barcode,
                 },
             )
             resp.close()
@@ -373,7 +373,7 @@ class SpaceBarApp(App):
             else:
                 self.order_ref       = data.get("order_ref", "")
                 self.barcode         = data.get("barcode", "")
-                self.qr_rows         = data.get("qr_rows", [])
+                self.qr_rows         = _qr_make(self.barcode) if self.barcode else []
                 self.order_placed_at = time.ticks_ms() / 1000.0
                 self._show_bill      = False
                 self._qr_expired     = False
