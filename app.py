@@ -371,7 +371,7 @@ class SpaceBarApp(App):
                 self.state = S_ERROR
                 self.error_msg = data.get("message", data["error"])
             else:
-                self.order_ref       = data.get("order_ref", "")
+                self.order_ref       = str(data.get("transaction_id", ""))
                 self.barcode         = data.get("barcode", "")
                 self.qr_rows         = _qr_make(self.barcode) if self.barcode else []
                 self.order_placed_at = time.ticks_ms() / 1000.0
