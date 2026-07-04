@@ -283,7 +283,7 @@ class SpaceBarApp(App):
             ]
             body = json.dumps({"location": LOCATION, "items": items})
             resp = urequests.post(
-                f"{TILLWEB_BASE_URL}/api/kiosk/orders",
+                f"{TILLWEB_BASE_URL}/api/kiosk/orders/",
                 data=body,
                 headers={
                     "Authorization": f"Bearer {KIOSK_TOKEN}",
@@ -303,7 +303,7 @@ class SpaceBarApp(App):
             import urequests
             resp = urequests.request(
                 "DELETE",
-                f"{TILLWEB_BASE_URL}/api/kiosk/orders/{self.order_ref}",
+                f"{TILLWEB_BASE_URL}/api/kiosk/orders/{self.order_ref}/",
                 headers={
                     "Authorization": f"Bearer {KIOSK_TOKEN}",
                     "Order-Barcode": self.barcode,
